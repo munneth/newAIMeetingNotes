@@ -33,7 +33,7 @@ export default async function NavbarProd() {
               <NavigationMenuItem>
                 <NavigationMenuLink asChild>
   
-                  <Link href="/api/auth/signin">Login</Link>
+                  <Link href="/login">Login</Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>
             </NavigationMenuList>

@@ -1,6 +1,8 @@
+"use client"
+
 import { GalleryVerticalEnd } from "lucide-react"
-import { auth } from "@/lib/auth"
 import { LoginForm } from "@/components/login-form"
+
 
 export default  function LoginPage() {
   
