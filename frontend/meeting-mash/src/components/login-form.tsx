@@ -56,7 +56,7 @@ export function LoginForm({
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            signIn("github")
+            window.location.href = '/api/auth/signin/github'
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
