@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { signIn } from "next-auth/react"
+import { auth } from "@/lib/auth"
+import { redirect } from "next/navigation"
+
+async function executeAction({ actionFn }: { actionFn: () => Promise<void> }) {
+  "use server"
+  await actionFn()
+}
 
 export function LoginForm({
   className,
@@ -17,7 +24,23 @@ export function LoginForm({
   }
 
   return (
-    <form className={cn("flex flex-col gap-6", className)} onSubmit={handleSubmit} {...props}>
+    <form className={cn("flex flex-col gap-6", className)} 
+    action={async (formData: FormData) => { 
+      "use server";
+      await executeAction({
+        actionFn: async () =>{
+          const email = formData.get('email') as string
+          const password = formData.get('password') as string
+          await signIn("credentials", {
+            email,
+            password,
+            redirect: false,
+          })
+        }
+      })
+    }} 
+    {...props}
+    >
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Login to your account</h1>
         <p className="text-muted-foreground text-sm text-balance">
@@ -27,7 +50,7 @@ export function LoginForm({
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="m@example.com" />
+          <Input id="email" name="email" type="email" placeholder="m@example.com" />
         </div>
         <div className="grid gap-3">
           <div className="flex items-center">
@@ -39,7 +62,7 @@ export function LoginForm({
               Forgot your password?
             </a>
           </div>
-          <Input id="password" type="password" />
+          <Input id="password" name="password" type="password" />
         </div>
         <Button type="submit" className="w-full">
           Login
@@ -56,7 +79,7 @@ export function LoginForm({
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            window.location.href = '/api/auth/signin'
+            signIn('github', { callbackUrl: '/' })
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
