@@ -16,6 +16,7 @@ model User {
   image         String?
   accounts      Account[]
   sessions      Session[]
+  meetings      Meeting[]       // Add this relation
   // Optional for WebAuthn support
   Authenticator Authenticator[]
  
@@ -76,4 +77,15 @@ model Authenticator {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
  
   @@id([userId, credentialID])
+}
+
+model Meeting {
+  id          String   @id @default(cuid())
+  link        String
+  duration    String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

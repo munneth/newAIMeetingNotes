@@ -16,8 +16,8 @@ load_dotenv()
 
 class JoinGoogleMeet:
     def __init__(self):
-        self.mail_address = os.getenv('EMAIL_ID')
-        self.password = os.getenv('EMAIL_PASSWORD')
+        self.mail_address = os.getenv('GOOGLE_EMAIL')
+        self.password = os.getenv('GOOGLE_PASSWORD')
         # create chrome instance
         opt = Options()
         opt.add_argument('--disable-blink-features=AutomationControlled')
