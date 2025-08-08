@@ -11,6 +11,7 @@ from speech_to_text import SpeechToText
 import os
 import tempfile
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
 
@@ -86,12 +87,42 @@ class JoinGoogleMeet:
         # Ask to join and join now buttons have same xpaths
         AudioRecorder().get_audio(audio_path, duration)
 
+def get_latest_meeting_link():
+    """Fetch the latest meeting link from the database via API"""
+    try:
+        # Make a request to your Next.js API
+        response = requests.get('http://localhost:3000/api/meetings')
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('meetings') and len(data['meetings']) > 0:
+                latest_meeting = data['meetings'][0]  # First one is latest due to DESC order
+                return latest_meeting.get('link')
+        
+        print("No meetings found in database")
+        return None
+    except Exception as e:
+        print(f"Error fetching meeting link: {e}")
+        return None
+
 def main():
     temp_dir = tempfile.mkdtemp()
     audio_path = os.path.join(temp_dir, "output.wav")
-    # Get configuration from environment variables
-    meet_link = os.getenv('MEET_LINK')
+    
+    # Get the latest meeting link from database
+    meet_link = get_latest_meeting_link()
+    
+    if not meet_link:
+        print("No meeting link found. Using environment variable as fallback.")
+        meet_link = os.getenv('MEET_LINK')
+    
+    if not meet_link:
+        print("No meeting link available. Exiting.")
+        return
+    
     duration = int(os.getenv('RECORDING_DURATION', 60))
+    
+    print(f"Using meeting link: {meet_link}")
     
     obj = JoinGoogleMeet()
     obj.Glogin()
