@@ -1,48 +1,49 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { signIn } from "next-auth/react"
-import { loginAction } from "@/lib/actions"
-import { useRouter } from "next/navigation"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { signIn } from "next-auth/react";
+import { loginAction } from "@/lib/actions";
+import { useRouter } from "next/navigation";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const router = useRouter()
-  
+  const router = useRouter();
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+    e.preventDefault();
     // Handle traditional email/password login here
-    console.log("Traditional login submitted")
-  }
+    console.log("Traditional login submitted");
+  };
 
   return (
-    <form className={cn("flex flex-col gap-6", className)} 
-    onSubmit={async (e) => {
-      e.preventDefault()
-      const formData = new FormData(e.currentTarget)
-      const email = formData.get('email') as string
-      const password = formData.get('password') as string
-      
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-      
-      if (result?.error) {
-        console.error('Login failed:', result.error)
-        // Handle error (show message to user)
-      } else {
-        // Redirect to home page on success
-        router.push('/')
-      }
-    }}
-    {...props}
+    <form
+      className={cn("flex flex-col gap-6", className)}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const email = formData.get("email") as string;
+        const password = formData.get("password") as string;
+
+        const result = await signIn("credentials", {
+          email,
+          password,
+          redirect: false,
+        });
+
+        if (result?.error) {
+          console.error("Login failed:", result.error);
+          // Handle error (show message to user)
+        } else {
+          // Redirect to home page on success
+          router.push("/");
+        }
+      }}
+      {...props}
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Login to your account</h1>
@@ -53,7 +54,12 @@ export function LoginForm({
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="m@example.com" />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="m@example.com"
+          />
         </div>
         <div className="grid gap-3">
           <div className="flex items-center">
@@ -75,14 +81,14 @@ export function LoginForm({
             Or continue with
           </span>
         </div>
-        <Button 
-          type="button" 
-          variant="outline" 
-          className="w-full" 
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
           onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            signIn('github', { callbackUrl: '/' })
+            e.preventDefault();
+            e.stopPropagation();
+            signIn("github", { callbackUrl: "/" });
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -101,5 +107,5 @@ export function LoginForm({
         </a>
       </div>
     </form>
-  )
+  );
 }

@@ -16,23 +16,21 @@ export default async function NavbarProd() {
   return (
     <>
       <div>
-        {session ?(
-        <NavigationMenu>
-          <NavigationMenuList>
-            <NavigationMenuItem>
-              <NavigationMenuLink asChild>
-
-                <Link href="/api/auth/signout">Logout</Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-        ):(
-            <NavigationMenu>
+        {session ? (
+          <NavigationMenu>
             <NavigationMenuList>
               <NavigationMenuItem>
                 <NavigationMenuLink asChild>
-  
+                  <Link href="/api/auth/signout">Logout</Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
+        ) : (
+          <NavigationMenu>
+            <NavigationMenuList>
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild>
                   <Link href="/login">Login</Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>

@@ -1,20 +1,21 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { signIn } from "next-auth/react"
-import { signupAction } from "@/lib/actions"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { signIn } from "next-auth/react";
+import { signupAction } from "@/lib/actions";
 
 export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
   return (
-    <form className={cn("flex flex-col gap-6", className)} 
-    action={signupAction}
-    {...props}
+    <form
+      className={cn("flex flex-col gap-6", className)}
+      action={signupAction}
+      {...props}
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold">Create an account</h1>
@@ -25,7 +26,12 @@ export function SignupForm({
       <div className="grid gap-6">
         <div className="grid gap-3">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="m@example.com" />
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            placeholder="m@example.com"
+          />
         </div>
         <div className="grid gap-3">
           <Label htmlFor="password">Password</Label>
@@ -43,14 +49,14 @@ export function SignupForm({
             Or continue with
           </span>
         </div>
-        <Button 
-          type="button" 
-          variant="outline" 
-          className="w-full" 
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
           onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            signIn('github', { callbackUrl: '/' })
+            e.preventDefault();
+            e.stopPropagation();
+            signIn("github", { callbackUrl: "/" });
           }}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -69,5 +75,5 @@ export function SignupForm({
         </a>
       </div>
     </form>
-  )
+  );
 }
