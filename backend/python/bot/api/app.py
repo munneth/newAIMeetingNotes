@@ -1,11 +1,17 @@
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
+import psycopg2
 import os
 
 # Load environment variables from .env file
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL')
 app = Flask(__name__)
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+
 
 @app.route('/')
 def home():
@@ -21,11 +27,15 @@ def health():
         'service': 'meeting-notes-api'
     })
 
-@app.route('/api/meetings', methods=['GET'])
-def get_meetings():
+@app.route('/api/meetings/<user_id>', methods=['GET'])
+def get_meetings(user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
     # Placeholder for getting meetings
+    cursor.execute("SELECT * FROM Meeting WHERE userId = %s", (user_id,))
+    meetings = cursor.fetchall()
     return jsonify({
-        'meetings': [],
+        'meetings': meetings,
         'message': 'Meetings endpoint - implement logic here'
     })
 
