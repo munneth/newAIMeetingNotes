@@ -9,8 +9,18 @@ export async function POST(request: NextRequest) {
     // Get the current user session
     const session = await auth()
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    console.log('Session:', session) // Debug log
+    
+    if (!session) {
+      return NextResponse.json({ error: 'No session found' }, { status: 401 })
+    }
+    
+    if (!session.user) {
+      return NextResponse.json({ error: 'No user in session' }, { status: 401 })
+    }
+    
+    if (!session.user.id) {
+      return NextResponse.json({ error: 'No user ID in session' }, { status: 401 })
     }
 
     // Parse the request body
@@ -47,6 +57,8 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const session = await auth()
+    
+    console.log('GET Session:', session) // Debug log
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
