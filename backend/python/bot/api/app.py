@@ -32,11 +32,12 @@ def get_meetings(user_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     # Placeholder for getting meetings
-    cursor.execute("SELECT * FROM Meeting WHERE userId = %s", (user_id,))
+    cursor.execute("SELECT * FROM \"Meeting\" WHERE \"userId\" = %s", (user_id,))
+    
     meetings = cursor.fetchall()
     return jsonify({
         'meetings': meetings,
-        'message': 'Meetings endpoint - implement logic here'
+        'message': 'Follows LIFO order'
     })
 
 @app.route('/api/meetings', methods=['POST'])
