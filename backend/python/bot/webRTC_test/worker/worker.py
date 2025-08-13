@@ -21,35 +21,25 @@ ANSWER_PATH = "/tmp/answer.sdp"
 # Storage state handling
 # -----------------------------
 def _apply_storage_state_to_persistent_context(context, storage_state):
-    """
-    Apply cookies and localStorage from a Playwright storage_state.
-    Accepts either JSON string, dict, or path to a JSON file.
-    """
     if not storage_state:
         print("No storage_state provided, cannot sign in")
         return
 
     if os.path.exists(storage_state):
-        try:
-            with open(storage_state, "r", encoding="utf-8") as f:
-                state = json.load(f)
-        except Exception as e:
-            print("Failed to read storage_state file:", e)
-            return
+        with open(storage_state, "r", encoding="utf-8") as f:
+            state = json.load(f)
     elif isinstance(storage_state, str):
-        try:
-            state = json.loads(storage_state)
-        except Exception as e:
-            print("Failed to parse storage_state string:", e)
-            return
+        state = json.loads(storage_state)
     else:
         state = storage_state
 
+    # Apply cookies
     cookies = state.get("cookies") or []
     if cookies:
         context.add_cookies(cookies)
         print(f"Applied {len(cookies)} cookies")
 
+    # Apply localStorage/sessionStorage
     origins = state.get("origins") or []
     for origin_entry in origins:
         origin = origin_entry.get("origin")
@@ -76,29 +66,34 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
     with sync_playwright() as p:
         user_data_dir = "/tmp/meet_profile"
 
+        # Headless=False + stealth flags
         context = p.chromium.launch_persistent_context(
             user_data_dir=user_data_dir,
-            headless=False,
+            headless=True,
             args=[
                 "--use-fake-ui-for-media-stream",
                 "--use-fake-device-for-media-stream",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
                 "--enable-logging",
             ],
         )
 
         _apply_storage_state_to_persistent_context(context, storage_state)
-        page = context.new_page()
 
-        # Warm up cookies by visiting Google Accounts
+        page = context.new_page()
+        page.set_default_timeout(timeout * 1000)
+
+        # Warm up cookies
         try:
             page.goto("https://accounts.google.com/", wait_until="domcontentloaded")
+            time.sleep(1)
             print("Visited Google Accounts page to warm up cookies")
         except Exception as e:
             print("Could not visit Google Accounts:", e)
 
-        # Inject JS to capture SDP offer
+        # Inject JS hook for offer
         hook_js = """
         (function() {
             const PC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
@@ -125,7 +120,6 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
         })();
         """
         context.add_init_script(hook_js)
-        page.set_default_timeout(timeout * 1000)
 
         signaling_calls = []
 
@@ -145,6 +139,7 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
 
         # Navigate to Meet
         page.goto(meet_link, wait_until="domcontentloaded")
+        time.sleep(5)  # wait for UI buttons
 
         # Debug save
         try:
@@ -156,20 +151,19 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
         except Exception as e:
             print("Failed to save debug page info:", e)
 
-        # Wait for and click 'Ask to join' or 'Join now'
-        try:
-            button = page.wait_for_selector('button:has-text("Ask to join")', timeout=60000)
-            button.click()
-            print("Ask to join button appeared and clicked")
-            page.wait_for_timeout(5000)  # wait 5s after click
-        except Exception:
+        # Click join button if it appears
+        joined = False
+        for btn_text in ["Ask to join", "Join now"]:
             try:
-                button = page.wait_for_selector('button:has-text("Join now")', timeout=60000)
-                button.click()
-                print("Join now button appeared and clicked")
-                page.wait_for_timeout(5000)
+                page.wait_for_selector(f'button:has-text("{btn_text}")', timeout=15000)
+                page.click(f'button:has-text("{btn_text}")')
+                print(f"{btn_text} button appeared and clicked")
+                joined = True
+                break
             except Exception:
-                print("No 'Ask to join' or 'Join now' button found; continuing")
+                continue
+        if not joined:
+            print("No 'Ask to join' or 'Join now' button found; continuing")
 
         # Wait for offer capture
         offer = None
