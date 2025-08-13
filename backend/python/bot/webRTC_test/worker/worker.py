@@ -1,4 +1,4 @@
-# worker/worker.py
+# worker.py
 import redis
 import json
 import os
@@ -8,108 +8,123 @@ from playwright.sync_api import sync_playwright
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaRecorder
 
+# -----------------------------
+# Configuration
+# -----------------------------
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 r = redis.from_url(REDIS_URL)
 
 OFFER_PATH = "/tmp/offer.sdp"
 ANSWER_PATH = "/tmp/answer.sdp"
 
-
+# -----------------------------
+# Storage state handling
+# -----------------------------
 def _apply_storage_state_to_persistent_context(context, storage_state):
     """
-    Apply cookies and localStorage from a Playwright storage_state to a persistent browser context.
-    This is needed because launch_persistent_context ignores storage_state directly.
+    Apply cookies and localStorage from a Playwright storage_state.
+    Accepts either JSON string, dict, or path to a JSON file.
     """
     if not storage_state:
         print("No storage_state provided, cannot sign in")
         return
-    try:
-        state = json.loads(storage_state) if isinstance(storage_state, str) else storage_state
 
-        # Apply cookies
-        cookies = state.get("cookies") or []
-        if cookies:
-            context.add_cookies(cookies)
-            print(f"Applied {len(cookies)} cookies")
+    if os.path.exists(storage_state):
+        try:
+            with open(storage_state, "r", encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception as e:
+            print("Failed to read storage_state file:", e)
+            return
+    elif isinstance(storage_state, str):
+        try:
+            state = json.loads(storage_state)
+        except Exception as e:
+            print("Failed to parse storage_state string:", e)
+            return
+    else:
+        state = storage_state
 
-        # Apply localStorage/sessionStorage for each origin
-        origins = state.get("origins") or []
-        for origin_entry in origins:
-            origin = origin_entry.get("origin")
-            local_storage = origin_entry.get("localStorage", [])
-            if not origin:
-                continue
-            page_tmp = context.new_page()
-            page_tmp.goto(origin, wait_until="domcontentloaded")
-            for item in local_storage:
-                key = item.get("name")
-                val = item.get("value")
-                if key is not None and val is not None:
-                    page_tmp.evaluate(
-                        """([k,v]) => { try { localStorage.setItem(k, v); } catch(e) {} }""",
-                        [key, val]
-                    )
-            page_tmp.close()
-        print("Applied storage_state successfully")
-    except Exception as e:
-        print("Warning: could not apply storage_state manually:", e)
+    cookies = state.get("cookies") or []
+    if cookies:
+        context.add_cookies(cookies)
+        print(f"Applied {len(cookies)} cookies")
 
+    origins = state.get("origins") or []
+    for origin_entry in origins:
+        origin = origin_entry.get("origin")
+        local_storage = origin_entry.get("localStorage", [])
+        if not origin:
+            continue
+        page_tmp = context.new_page()
+        page_tmp.goto(origin, wait_until="domcontentloaded")
+        for item in local_storage:
+            key = item.get("name")
+            val = item.get("value")
+            if key is not None and val is not None:
+                page_tmp.evaluate(
+                    """([k,v]) => { try { localStorage.setItem(k,v); } catch(e) {} }""",
+                    [key, val]
+                )
+        page_tmp.close()
+    print("Applied storage_state successfully")
 
+# -----------------------------
+# Capture Google Meet offer
+# -----------------------------
 def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
     with sync_playwright() as p:
         user_data_dir = "/tmp/meet_profile"
 
         context = p.chromium.launch_persistent_context(
             user_data_dir=user_data_dir,
-            headless=True,
+            headless=False,
             args=[
                 "--use-fake-ui-for-media-stream",
-                "--use-fake-device-for-media-stream",  # ensures dummy cam/mic
+                "--use-fake-device-for-media-stream",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--enable-logging",
             ],
         )
 
-        # Apply sign-in state before navigating to Meet
         _apply_storage_state_to_persistent_context(context, storage_state)
-
         page = context.new_page()
 
-        # Visit Google to ensure cookies are recognized
+        # Warm up cookies by visiting Google Accounts
         try:
             page.goto("https://accounts.google.com/", wait_until="domcontentloaded")
             print("Visited Google Accounts page to warm up cookies")
         except Exception as e:
             print("Could not visit Google Accounts:", e)
 
+        # Inject JS to capture SDP offer
         hook_js = """
         (function() {
-          const PC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
-          if (!PC) return;
-          const origSetRemote = PC.prototype && PC.prototype.setRemoteDescription;
-          if (!origSetRemote) return;
+            const PC = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+            if (!PC) return;
+            const origSetRemote = PC.prototype && PC.prototype.setRemoteDescription;
+            if (!origSetRemote) return;
 
-          if (!window.__meet_hook_installed) {
-            window.__meet_hook_installed = true;
-            window.__captured_offer = null;
+            if (!window.__meet_hook_installed) {
+                window.__meet_hook_installed = true;
+                window.__captured_offer = null;
 
-            PC.prototype.setRemoteDescription = function(desc) {
-              try {
-                if (desc && desc.type === 'offer' && desc.sdp) {
-                  window.__captured_offer = { sdp: desc.sdp, type: 'offer' };
-                  try { console.debug('MeetHook: captured offer'); } catch(_) {}
-                }
-              } catch (e) {
-                try { console.error('MeetHook error', e); } catch(_) {}
-              }
-              return origSetRemote.apply(this, arguments);
-            };
-          }
+                PC.prototype.setRemoteDescription = function(desc) {
+                    try {
+                        if (desc && desc.type === 'offer' && desc.sdp) {
+                            window.__captured_offer = { sdp: desc.sdp, type: 'offer' };
+                            try { console.debug('MeetHook: captured offer'); } catch(_) {}
+                        }
+                    } catch (e) {
+                        try { console.error('MeetHook error', e); } catch(_) {}
+                    }
+                    return origSetRemote.apply(this, arguments);
+                };
+            }
         })();
         """
         context.add_init_script(hook_js)
-
         page.set_default_timeout(timeout * 1000)
 
         signaling_calls = []
@@ -128,7 +143,7 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
 
         page.on("request", on_request)
 
-        # Navigate to the Meet link
+        # Navigate to Meet
         page.goto(meet_link, wait_until="domcontentloaded")
 
         # Debug save
@@ -141,16 +156,18 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
         except Exception as e:
             print("Failed to save debug page info:", e)
 
-        # Try to click 'Ask to join' or 'Join now' if present
+        # Wait for and click 'Ask to join' or 'Join now'
         try:
-            page.wait_for_selector('button:has-text("Ask to join")', timeout=15000)
-            page.click('button:has-text("Ask to join")')
-            print("Clicked 'Ask to join' button")
+            button = page.wait_for_selector('button:has-text("Ask to join")', timeout=60000)
+            button.click()
+            print("Ask to join button appeared and clicked")
+            page.wait_for_timeout(5000)  # wait 5s after click
         except Exception:
             try:
-                page.wait_for_selector('button:has-text("Join now")', timeout=15000)
-                page.click('button:has-text("Join now")')
-                print("Clicked 'Join now' button")
+                button = page.wait_for_selector('button:has-text("Join now")', timeout=60000)
+                button.click()
+                print("Join now button appeared and clicked")
+                page.wait_for_timeout(5000)
             except Exception:
                 print("No 'Ask to join' or 'Join now' button found; continuing")
 
@@ -183,7 +200,9 @@ def capture_offer_with_playwright(meet_link, storage_state=None, timeout=180):
             "storage_state": storage
         }
 
-
+# -----------------------------
+# WebRTC answer creation
+# -----------------------------
 async def create_answer_sdp(offer_sdp_text, save_audio_to=None):
     pc = RTCPeerConnection()
     recorder = None
@@ -210,7 +229,9 @@ async def create_answer_sdp(offer_sdp_text, save_audio_to=None):
 
     return pc.localDescription.sdp, pc, recorder
 
-
+# -----------------------------
+# Dummy signaling handler
+# -----------------------------
 def send_answer_via_signaling(signaling_meta, answer_sdp):
     print("Captured signaling calls (first 5):")
     for c in signaling_meta.get("signaling_candidates", [])[:5]:
@@ -230,7 +251,9 @@ def send_answer_via_signaling(signaling_meta, answer_sdp):
     print("Construct a body JSON matching the original payload but replace offer SDP with the answer.")
     return True
 
-
+# -----------------------------
+# Worker loop
+# -----------------------------
 def worker_loop():
     print("Worker starting — polling Redis for jobs...")
     while True:
@@ -275,7 +298,8 @@ def worker_loop():
             print("Worker error:", exc)
             continue
 
-
+# -----------------------------
+# Entry point
+# -----------------------------
 if __name__ == "__main__":
     worker_loop()
-
