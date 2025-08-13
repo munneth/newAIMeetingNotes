@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: meet-bot-job-{{JOB_ID}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: meet-bot
+        image: your-registry/meet-bot-worker:latest
+        env:
+          - name: REDIS_URL
+            value: redis://redis:6379/0
+          - name: MEET_LINK
+            value: "https://meet.google.com/your-meet-id"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+      restartPolicy: Never
+  backoffLimit: 1
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: meet-bot-job-{{JOB_ID}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: meet-bot
+        image: your-registry/meet-bot-worker:latest
+        env:
+          - name: REDIS_URL
+            value: redis://redis:6379/0
+          - name: MEET_LINK
+            value: "https://meet.google.com/your-meet-id"
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+      restartPolicy: Never
+  backoffLimit: 1

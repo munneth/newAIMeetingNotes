@@ -1,0 +1,20 @@
+# orchestrator + worker combined dependencies
+
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
+redis==4.5.5
+requests==2.31.0
+python-dotenv==1.0.0
+
+# Playwright dependencies
+playwright==1.35.1
+
+# aiortc for WebRTC stuff
+aiortc==1.4.3
+
+# Optional speech-to-text (if you add that later)
+pydub==0.25.1
+SpeechRecognition==3.8.1
+
+# Others you might use
+numpy==1.26.4
