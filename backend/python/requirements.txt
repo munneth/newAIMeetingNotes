@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-redis
-pydantic
-playwright
-aiortc
-aiohttp
