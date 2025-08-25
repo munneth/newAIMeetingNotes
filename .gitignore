@@ -6,3 +6,12 @@ node_modules
 .env.production.local
 venv
 venv312
+
+# Zoom Bot specific
+zoom-bot/py-zoom-meeting-sdk/.env
+zoom-bot/py-zoom-meeting-sdk/__pycache__/
+zoom-bot/py-zoom-meeting-sdk/sample_program/__pycache__/
+zoom-bot/py-zoom-meeting-sdk/sample_program/out/
+zoom-bot/py-zoom-meeting-sdk/test_scripts/__pycache__/
+zoom-bot/py-zoom-meeting-sdk/src/__pycache__/
+zoom-bot/py-zoom-meeting-sdk/src/zoom_meeting_sdk/__pycache__/
