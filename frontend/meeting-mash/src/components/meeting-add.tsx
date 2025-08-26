@@ -7,6 +7,7 @@ import { useState } from "react";
 export default function MeetingAdd() {
   const [durationVisible, setDurationVisible] = useState(false);
   const [link, setLink] = useState("");
+  const [meetingId, setMeetingId] = useState("");
   const [duration, setDuration] = useState("");
 
   const handleDurationClick = () => {
@@ -23,6 +24,7 @@ export default function MeetingAdd() {
       },
       body: JSON.stringify({
         link: link,
+        meetingId: meetingId,
         duration: duration,
       }),
     });
@@ -43,6 +45,12 @@ export default function MeetingAdd() {
           className="w-64 text-center"
           value={link}
           onChange={(e) => setLink(e.target.value)}
+        />
+        <Input 
+          placeholder="Meeting ID" 
+          className="w-64 text-center"
+          value={meetingId}
+          onChange={(e) => setMeetingId(e.target.value)}
         />
         <Button onClick={handleDurationClick} className="w-32">
           Add

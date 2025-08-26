@@ -82,6 +82,7 @@ model Authenticator {
 model Meeting {
   id          String   @id @default(cuid())
   link        String
+  meetingId   String?
   duration    String?
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)

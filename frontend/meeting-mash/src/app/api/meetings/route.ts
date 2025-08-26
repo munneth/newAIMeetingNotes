@@ -24,17 +24,34 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse the request body
-    const { link, duration } = await request.json()
+    const body = await request.json()
+    const { link, meetingId, duration } = body
+    
+    console.log('Request body:', body)
+    console.log('Extracted meetingId:', meetingId)
 
     // Validate required fields
     if (!link) {
       return NextResponse.json({ error: 'Meeting link is required' }, { status: 400 })
     }
 
+    // Check if user exists in database
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id }
+    })
+    
+    console.log('User ID from session:', session.user.id)
+    console.log('User found in database:', user)
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found in database' }, { status: 404 })
+    }
+
     // Create the meeting in the database
     const meeting = await prisma.meeting.create({
       data: {
         link,
+        meetingId: meetingId || null,
         duration: duration || null,
         userId: session.user.id,
       },
