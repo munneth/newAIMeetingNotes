@@ -165,20 +165,44 @@ class BotOrchestrator:
 
 # Example usage
 if __name__ == "__main__":
+    import threading
+    from flask import Flask, request, jsonify
+    
+    app = Flask(__name__)
     orchestrator = BotOrchestrator()
     
-    # Example: Create a bot instance
-    meeting_data = {
-        "link": "https://zoom.us/j/123456789",
-        "start_time": "2024-01-15T10:00:00Z",
-        "duration": "60",
-        "title": "Team Meeting"
-    }
+    @app.route('/health')
+    def health():
+        return jsonify({"status": "healthy"})
     
-    instance_id = orchestrator.create_bot_instance(
-        user_id="user123",
-        meeting_id="meeting456",
-        meeting_data=meeting_data
-    )
+    @app.route('/ready')
+    def ready():
+        return jsonify({"status": "ready"})
     
-    print(f"Created bot instance: {instance_id}")
+    @app.route('/create-instance', methods=['POST'])
+    def create_instance():
+        try:
+            data = request.json
+            instance_id = orchestrator.create_bot_instance(
+                user_id=data['user_id'],
+                meeting_id=data['meeting_id'],
+                meeting_data=data['meeting_data']
+            )
+            return jsonify({"success": True, "instance_id": instance_id})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @app.route('/user-instances/<user_id>')
+    def get_user_instances(user_id):
+        try:
+            instances = orchestrator.list_active_instances()
+            user_instances = {k: v for k, v in instances.items() if v.get('user_id') == user_id}
+            return jsonify(user_instances)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    print("Bot Orchestrator started successfully!")
+    print("Web server running on port 8080...")
+    
+    # Run Flask app
+    app.run(host='0.0.0.0', port=8080)
