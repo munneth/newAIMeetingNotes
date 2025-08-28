@@ -46,17 +46,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Meeting not found' }, { status: 404 })
     }
 
+    // Parse password from Zoom URL
+    const parseZoomPassword = (url: string) => {
+      try {
+        const urlObj = new URL(url);
+        return urlObj.searchParams.get('pwd') || '';
+      } catch (error) {
+        console.error('Error parsing Zoom URL:', error);
+        return '';
+      }
+    };
+
     // Prepare meeting data for bot
     const meetingData = {
       link: meeting.link,
       meetingId: meeting.meetingId,
       start_time: startTime,
       duration: duration || meeting.duration || "60",
+      password: parseZoomPassword(meeting.link),
       title: `Meeting for ${session.user.email}`
     }
 
     // Call bot orchestrator to create instance
-    const orchestratorUrl = process.env.BOT_ORCHESTRATOR_URL || 'http://bot-orchestrator-service:8080'
+    const orchestratorUrl = process.env.BOT_ORCHESTRATOR_URL || 'http://localhost:8080'
     
     const botResponse = await fetch(`${orchestratorUrl}/create-instance`, {
       method: 'POST',
@@ -101,7 +113,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's active bot instances
-    const orchestratorUrl = process.env.BOT_ORCHESTRATOR_URL || 'http://bot-orchestrator-service:8080'
+    const orchestratorUrl = process.env.BOT_ORCHESTRATOR_URL || 'http://localhost:8080'
     
     const botResponse = await fetch(`${orchestratorUrl}/user-instances/${session.user.id}`)
     

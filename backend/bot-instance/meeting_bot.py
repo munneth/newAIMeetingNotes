@@ -21,6 +21,15 @@ class MeetingBot:
         self.api_base_url = os.getenv("API_BASE_URL", "http://localhost:3000")
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         
+        # Zoom SDK credentials (essential for joining meetings)
+        self.zoom_client_id = os.getenv("ZOOM_APP_CLIENT_ID")
+        self.zoom_client_secret = os.getenv("ZOOM_APP_CLIENT_SECRET")
+        self.zoom_jwt_token = os.getenv("ZOOM_JWT_TOKEN")
+        
+        # Meeting credentials
+        self.meeting_password = os.getenv("MEETING_PASSWORD")
+        self.display_name = os.getenv("DISPLAY_NAME", "MeetingBot")
+        
         # Parse meeting data
         meeting_data_str = os.getenv("MEETING_DATA", "{}")
         self.meeting_data = json.loads(meeting_data_str)
@@ -74,25 +83,44 @@ class MeetingBot:
             self.cleanup()
     
     def join_meeting(self):
-        """Join the meeting"""
+        """Join the meeting using Zoom SDK"""
         try:
             meeting_link = self.meeting_data.get("link")
+            meeting_id = self.meeting_data.get("meetingId")
+            password = self.meeting_data.get("password", "")
+            
             logger.info(f"Joining meeting: {meeting_link}")
+            logger.info(f"Meeting ID: {meeting_id}, Password: {password}")
             
-            # Here you would implement the actual meeting joining logic
-            # This could involve:
-            # - Opening the meeting link
-            # - Using Selenium/Playwright to automate browser
-            # - Using meeting APIs (Zoom, Teams, etc.)
+            # Check if we have the required Zoom credentials
+            if not all([self.zoom_client_id, self.zoom_client_secret]):
+                logger.error("Missing Zoom credentials - cannot join meeting")
+                self.log_action("join_failed", {
+                    "reason": "missing_zoom_credentials",
+                    "meeting_link": meeting_link,
+                    "timestamp": datetime.now().isoformat()
+                })
+                return
             
-            # For now, just log the action
-            self.log_action("joined_meeting", {
+            # Here you would implement the actual Zoom SDK joining logic
+            # Similar to your original test_join_meeting.py script
+            # For now, log that we have the credentials and would join
+            self.log_action("joining_meeting", {
                 "meeting_link": meeting_link,
+                "meeting_id": meeting_id,
+                "has_password": bool(password),
                 "timestamp": datetime.now().isoformat()
             })
             
+            # TODO: Implement actual Zoom SDK joining
+            # This would use the zoom_meeting_sdk like your original script
+            
         except Exception as e:
             logger.error(f"Failed to join meeting: {str(e)}")
+            self.log_action("join_failed", {
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            })
     
     def on_meeting_start(self):
         """Called when meeting starts"""

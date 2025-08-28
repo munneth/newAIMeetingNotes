@@ -9,6 +9,7 @@ export default function MeetingAdd() {
   const [link, setLink] = useState("");
   const [meetingId, setMeetingId] = useState("");
   const [duration, setDuration] = useState("");
+  const [startTime, setStartTime] = useState("");
 
   const handleDurationClick = () => {
     setDurationVisible(!durationVisible);
@@ -17,6 +18,8 @@ export default function MeetingAdd() {
 
   const handleSubmit = async () => {
     console.log("submit");
+    
+    // First, save the meeting
     const response = await fetch("/api/meetings", {
       method: "POST",
       headers: {
@@ -29,8 +32,37 @@ export default function MeetingAdd() {
       }),
     });
     const data = await response.json();
+    
     if (data.success) {
-      alert("Meeting added successfully");
+      // If meeting was saved successfully, try to create bot instance
+      if (startTime) {
+        try {
+          const botResponse = await fetch("/api/bot-instances", {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              meetingId: data.meeting.id,
+              startTime: startTime,
+              duration: duration,
+            }),
+          });
+          
+          const botData = await botResponse.json();
+          
+          if (botData.scheduled) {
+            alert(`Meeting added successfully! Bot will join ${startTime}`);
+          } else {
+            alert(`Meeting added successfully! ${botData.message}`);
+          }
+        } catch (error) {
+          console.error("Bot creation failed:", error);
+          alert("Meeting added successfully, but bot creation failed");
+        }
+      } else {
+        alert("Meeting added successfully!");
+      }
     } else {
       alert("Failed to add meeting");
     }
@@ -52,6 +84,13 @@ export default function MeetingAdd() {
           value={meetingId}
           onChange={(e) => setMeetingId(e.target.value)}
         />
+        <Input 
+          type="datetime-local"
+          className="w-64 text-center"
+          value={startTime}
+          onChange={(e) => setStartTime(e.target.value)}
+        />
+
         <Button onClick={handleDurationClick} className="w-32">
           Add
         </Button>

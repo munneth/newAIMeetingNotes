@@ -56,7 +56,14 @@ class BotOrchestrator:
                                 client.V1EnvVar(name="MEETING_DATA", value=json.dumps(meeting_data)),
                                 client.V1EnvVar(name="INSTANCE_ID", value=instance_id),
                                 client.V1EnvVar(name="API_BASE_URL", value="http://api-service:3000"),
-                                client.V1EnvVar(name="REDIS_URL", value="redis://redis-service:6379")
+                                client.V1EnvVar(name="REDIS_URL", value="redis://redis-service:6379"),
+                                # Zoom SDK credentials (essential for joining meetings)
+                                client.V1EnvVar(name="ZOOM_APP_CLIENT_ID", value=os.getenv("ZOOM_APP_CLIENT_ID", "")),
+                                client.V1EnvVar(name="ZOOM_APP_CLIENT_SECRET", value=os.getenv("ZOOM_APP_CLIENT_SECRET", "")),
+                                client.V1EnvVar(name="ZOOM_JWT_TOKEN", value=os.getenv("ZOOM_JWT_TOKEN", "")),
+                                # Meeting credentials
+                                client.V1EnvVar(name="MEETING_PASSWORD", value=meeting_data.get("password", "")),
+                                client.V1EnvVar(name="DISPLAY_NAME", value=f"Bot-{user_id}"),
                             ],
                             resources=client.V1ResourceRequirements(
                                 requests={
