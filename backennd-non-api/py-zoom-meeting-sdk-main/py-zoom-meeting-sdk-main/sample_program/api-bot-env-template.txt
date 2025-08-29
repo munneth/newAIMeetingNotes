@@ -1,0 +1,13 @@
+# API Configuration (REQUIRED)
+API_BASE_URL="http://localhost:3000"
+USER_MEETINGS_API_KEY="your-64-character-api-key-here"
+
+# Zoom App Credentials (REQUIRED)
+ZOOM_APP_CLIENT_ID="your-zoom-client-id-here"
+ZOOM_APP_CLIENT_SECRET="your-zoom-client-secret-here"
+
+# Optional Settings
+RECORD_VIDEO="false"
+DEEPGRAM_API_KEY=""
+
+# Note: USER_ID and MEETING_ID are set automatically by the orchestrator

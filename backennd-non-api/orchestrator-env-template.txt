@@ -1,0 +1,12 @@
+# API Configuration (REQUIRED)
+API_BASE_URL="http://localhost:3000"
+USER_MEETINGS_API_KEY="your-64-character-api-key-here"
+
+# Zoom App Credentials (REQUIRED for the bots)
+ZOOM_APP_CLIENT_ID="your-zoom-client-id-here"
+ZOOM_APP_CLIENT_SECRET="your-zoom-client-secret-here"
+
+# Note: The orchestrator automatically:
+# - Fetches user IDs from the API
+# - Extracts meeting credentials from meeting links
+# - Passes MEETING_ID and MEETING_PWD to each bot
