@@ -175,10 +175,11 @@ class SimpleOrchestrator:
             
             print(f"📝 Created .env file at: {env_file_path}")
             
-            # Start the bot process using Docker
+            # Start the bot process using Docker (following documentation)
+            # Install zoom-meeting-sdk and run the script in the same container
             docker_cmd = [
-                'docker-compose', 'run', 'develop',
-                'python', 'sample_program/sample.py'
+                'docker-compose', 'run', '--rm', 'develop',
+                'bash', '-c', 'pip install zoom-meeting-sdk && python sample_program/sample.py'
             ]
             
             bot_process = subprocess.Popen(
@@ -187,20 +188,40 @@ class SimpleOrchestrator:
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True  # Use text mode for easier debugging
+                text=True,  # Use text mode for easier debugging
+                bufsize=1,  # Line buffered
+                universal_newlines=True
             )
             
             self.active_bots[meeting_id] = bot_process
             print(f"✅ Started bot process (PID: {bot_process.pid}) for meeting {meeting_id}")
             
+            # Start a thread to monitor bot output in real-time
+            import threading
+            def monitor_bot_output():
+                while bot_process.poll() is None:
+                    stdout_line = bot_process.stdout.readline()
+                    if stdout_line:
+                        print(f"🤖 BOT OUTPUT: {stdout_line.strip()}")
+                    stderr_line = bot_process.stderr.readline()
+                    if stderr_line:
+                        print(f"🤖 BOT ERROR: {stderr_line.strip()}")
+                
+                # Process has finished, get any remaining output
+                stdout, stderr = bot_process.communicate()
+                if stdout:
+                    print(f"🤖 FINAL STDOUT: {stdout}")
+                if stderr:
+                    print(f"🤖 FINAL STDERR: {stderr}")
+            
+            monitor_thread = threading.Thread(target=monitor_bot_output, daemon=True)
+            monitor_thread.start()
+            
             # Check if process started successfully
             time.sleep(2)  # Give it a moment to start
             if bot_process.poll() is not None:
-                # Process has already exited, get the output
-                stdout, stderr = bot_process.communicate()
-                print(f"❌ Bot process failed to start:")
-                print(f"   STDOUT: {stdout}")
-                print(f"   STDERR: {stderr}")
+                # Process has already exited
+                print(f"❌ Bot process failed to start (exit code: {bot_process.returncode})")
                 # Remove from active bots since it failed
                 del self.active_bots[meeting_id]
             else:
