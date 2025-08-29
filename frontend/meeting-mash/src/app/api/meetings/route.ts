@@ -71,8 +71,22 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Check for API key in headers first
+    const apiKey = request.headers.get('authorization')?.replace('Bearer ', '')
+    
+    if (apiKey && apiKey === process.env.ORCHESTRATOR_API_KEY) {
+      // API key authentication - return all meetings
+      const meetings = await prisma.meeting.findMany({
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+      return NextResponse.json({ meetings })
+    }
+    
+    // Fall back to session authentication
     const session = await auth()
     
     console.log('GET Session:', session) // Debug log

@@ -1,0 +1,21 @@
+# Database
+DATABASE_URL="postgresql://username:password@localhost:5432/meeting_mash"
+
+# NextAuth
+NEXTAUTH_SECRET="your-nextauth-secret-key-here"
+NEXTAUTH_URL="http://localhost:3000"
+
+# GitHub OAuth (optional)
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+
+# ChatterBox API (if using)
+CHATTER_BOX_TOKEN=""
+
+# User Meetings API Key (REQUIRED for secure API access)
+# Generate this using: node generate-api-key.js
+USER_MEETINGS_API_KEY="your-64-character-api-key-here"
+
+# Zoom App Credentials (for future orchestrator)
+ZOOM_APP_CLIENT_ID=""
+ZOOM_APP_CLIENT_SECRET=""

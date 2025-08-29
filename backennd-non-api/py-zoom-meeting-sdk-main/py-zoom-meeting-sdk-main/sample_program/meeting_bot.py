@@ -163,15 +163,14 @@ class MeetingBot:
         print("CleanUPSDK() finished")
 
     def init(self):
+        if os.environ.get('MEETING_ID') is None:
+            raise Exception('No MEETING_ID found in environment. Please define this in a .env file located in the repository root')
+        if os.environ.get('MEETING_PWD') is None:
+            raise Exception('No MEETING_PWD found in environment. Please define this in a .env file located in the repository root')
         if os.environ.get('ZOOM_APP_CLIENT_ID') is None:
             raise Exception('No ZOOM_APP_CLIENT_ID found in environment. Please define this in a .env file located in the repository root')
         if os.environ.get('ZOOM_APP_CLIENT_SECRET') is None:
             raise Exception('No ZOOM_APP_CLIENT_SECRET found in environment. Please define this in a .env file located in the repository root')
-
-        # Fetch meeting data from API
-        self.meeting_id, self.meeting_password = fetch_meeting_data_from_api()
-        if self.meeting_id is None or self.meeting_password is None:
-            raise Exception('Failed to fetch meeting data from API. Please ensure the frontend is running and has meeting data.')
 
         init_param = zoom.InitParam()
 
@@ -551,8 +550,8 @@ class MeetingBot:
 
 
     def join_meeting(self):
-        mid = self.meeting_id
-        password = self.meeting_password
+        mid = os.environ.get('MEETING_ID')
+        password = os.environ.get('MEETING_PWD')
         display_name = "My meeting bot"
 
         meeting_number = int(mid)

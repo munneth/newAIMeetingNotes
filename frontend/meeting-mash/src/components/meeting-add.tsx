@@ -34,32 +34,9 @@ export default function MeetingAdd() {
     const data = await response.json();
     
     if (data.success) {
-      // If meeting was saved successfully, try to create bot instance
+      // Meeting saved successfully - orchestrator will automatically detect and schedule the bot
       if (startTime) {
-        try {
-          const botResponse = await fetch("/api/bot-instances", {
-            method: "POST",
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              meetingId: data.meeting.id,
-              startTime: startTime,
-              duration: duration,
-            }),
-          });
-          
-          const botData = await botResponse.json();
-          
-          if (botData.scheduled) {
-            alert(`Meeting added successfully! Bot will join ${startTime}`);
-          } else {
-            alert(`Meeting added successfully! ${botData.message}`);
-          }
-        } catch (error) {
-          console.error("Bot creation failed:", error);
-          alert("Meeting added successfully, but bot creation failed");
-        }
+        alert(`Meeting added successfully! Bot will automatically join at ${startTime}`);
       } else {
         alert("Meeting added successfully!");
       }
