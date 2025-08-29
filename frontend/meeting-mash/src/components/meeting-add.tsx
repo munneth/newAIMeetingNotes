@@ -18,6 +18,11 @@ export default function MeetingAdd() {
 
   const handleSubmit = async () => {
     console.log("submit");
+    console.log("startTime value:", startTime);
+    
+    // Format the time for database storage (HH:MM:SS format)
+    const formattedTime = startTime ? `${startTime}:00` : null;
+    console.log("formattedTime:", formattedTime);
     
     // First, save the meeting
     const response = await fetch("/api/meetings", {
@@ -29,6 +34,7 @@ export default function MeetingAdd() {
         link: link,
         meetingId: meetingId,
         duration: duration,
+        startTime: formattedTime,
       }),
     });
     const data = await response.json();
@@ -61,12 +67,19 @@ export default function MeetingAdd() {
           value={meetingId}
           onChange={(e) => setMeetingId(e.target.value)}
         />
-        <Input 
-          type="datetime-local"
-          className="w-64 text-center"
-          value={startTime}
-          onChange={(e) => setStartTime(e.target.value)}
-        />
+        <div className="flex flex-col items-center space-y-2">
+          <label className="text-sm font-medium">Meeting Start Time</label>
+          <Input 
+            type="time"
+            placeholder="Select time"
+            className="w-64 text-center"
+            value={startTime}
+            onChange={(e) => {
+              console.log("Time input changed:", e.target.value);
+              setStartTime(e.target.value);
+            }}
+          />
+        </div>
 
         <Button onClick={handleDurationClick} className="w-32">
           Add

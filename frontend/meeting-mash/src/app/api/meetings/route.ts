@@ -25,10 +25,12 @@ export async function POST(request: NextRequest) {
 
     // Parse the request body
     const body = await request.json()
-    const { link, meetingId, duration } = body
+    const { link, meetingId, duration, startTime } = body
     
     console.log('Request body:', body)
     console.log('Extracted meetingId:', meetingId)
+    console.log('Extracted startTime:', startTime)
+    console.log('Formatted startTime for DB:', startTime || null)
 
     // Validate required fields
     if (!link) {
@@ -54,8 +56,11 @@ export async function POST(request: NextRequest) {
         meetingId: meetingId || null,
         duration: duration || null,
         userId: session.user.id,
+        startTime: startTime || null,
       },
     })
+
+    console.log('Created meeting with startTime:', meeting.startTime)
 
     return NextResponse.json({ 
       success: true, 

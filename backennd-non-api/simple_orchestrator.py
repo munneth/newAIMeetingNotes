@@ -4,6 +4,8 @@ import time
 import subprocess
 import json
 import urllib.parse
+import signal
+import sys
 from datetime import datetime, timedelta
 from typing import Dict, List
 
@@ -20,7 +22,7 @@ class SimpleOrchestrator:
     def __init__(self):
         self.api_base_url = os.getenv('API_BASE_URL', 'http://localhost:3000')
         self.api_key = os.getenv('USER_MEETINGS_API_KEY')
-        self.active_bots: Dict[str, subprocess.Popen] = {}
+        self.active_bots: Dict[str, dict] = {}  # Changed to store bot info including start time and duration
         self.running = True
         
         if not self.api_key:
@@ -99,6 +101,107 @@ class SimpleOrchestrator:
             print(f"❌ Error fetching users with meetings: {e}")
             return {}
 
+    def is_meeting_time(self, meeting: dict) -> bool:
+        """Check if it's time for the meeting to start"""
+        try:
+            # Use the startTime field from the meeting
+            start_time_str = meeting.get('startTime')
+            if not start_time_str:
+                print(f"⚠️ No start time found for meeting {meeting.get('id')}")
+                return False
+            
+            # Parse the start time (time-only format HH:MM:SS)
+            try:
+                # Parse time string (HH:MM:SS)
+                time_parts = start_time_str.split(':')
+                hour = int(time_parts[0])
+                minute = int(time_parts[1])
+                second = int(time_parts[2]) if len(time_parts) > 2 else 0
+                
+                # Use today's date with the specified time
+                current_date = datetime.now().date()
+                start_time = datetime.combine(current_date, datetime.min.time().replace(hour=hour, minute=minute, second=second))
+            except (ValueError, IndexError) as e:
+                print(f"❌ Invalid time format: {start_time_str}, error: {e}")
+                return False
+            
+            current_time = datetime.now(start_time.tzinfo if start_time.tzinfo else None)
+            
+            # Allow joining 2 minutes before and 5 minutes after scheduled start time
+            time_diff = (current_time - start_time).total_seconds()
+            is_time = -120 <= time_diff <= 300  # 2 minutes before to 5 minutes after
+            
+            if is_time:
+                if time_diff < 0:
+                    print(f"✅ Meeting {meeting.get('id')} is starting soon (in {abs(time_diff):.0f} seconds)")
+                else:
+                    print(f"✅ Meeting {meeting.get('id')} started {time_diff/60:.1f} minutes ago")
+            else:
+                if time_diff < 0:
+                    print(f"⏰ Meeting {meeting.get('id')} starts in {abs(time_diff)/60:.1f} minutes")
+                else:
+                    print(f"⏰ Meeting {meeting.get('id')} started {time_diff/60:.1f} minutes ago (too late)")
+            
+            return is_time
+            
+        except Exception as e:
+            print(f"❌ Error checking meeting time: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def should_bot_leave(self, meeting_id: str) -> bool:
+        """Check if bot should leave based on duration"""
+        if meeting_id not in self.active_bots:
+            return False
+        
+        bot_info = self.active_bots[meeting_id]
+        start_time = bot_info['start_time']
+        duration_minutes = bot_info['duration_minutes']
+        
+        current_time = datetime.now()
+        elapsed_minutes = (current_time - start_time).total_seconds() / 60
+        
+        should_leave = elapsed_minutes >= duration_minutes
+        
+        if should_leave:
+            print(f"⏰ Bot for meeting {meeting_id} has been running for {elapsed_minutes:.1f} minutes, duration {duration_minutes} minutes reached")
+        
+        return should_leave
+
+    def cleanup_bot(self, meeting_id: str):
+        """Properly cleanup a bot instance"""
+        if meeting_id not in self.active_bots:
+            return
+        
+        bot_info = self.active_bots[meeting_id]
+        process = bot_info['process']
+        
+        try:
+            print(f"🧹 Cleaning up bot for meeting {meeting_id}")
+            
+            # Send SIGTERM to gracefully shutdown
+            process.terminate()
+            
+            # Wait up to 10 seconds for graceful shutdown
+            try:
+                process.wait(timeout=10)
+                print(f"✅ Bot for meeting {meeting_id} terminated gracefully")
+            except subprocess.TimeoutExpired:
+                print(f"⚠️ Bot for meeting {meeting_id} didn't terminate gracefully, forcing kill")
+                process.kill()
+                process.wait()
+            
+            # Remove from active bots
+            del self.active_bots[meeting_id]
+            print(f"✅ Bot for meeting {meeting_id} cleaned up successfully")
+            
+        except Exception as e:
+            print(f"❌ Error cleaning up bot for meeting {meeting_id}: {e}")
+            # Force remove from active bots even if cleanup fails
+            if meeting_id in self.active_bots:
+                del self.active_bots[meeting_id]
+
     def should_start_bot_for_meeting(self, meeting: dict) -> bool:
         """Check if we should start a bot for this meeting"""
         meeting_id = meeting.get('id')
@@ -106,22 +209,31 @@ class SimpleOrchestrator:
         
         # If bot already running for this meeting, don't start another
         if meeting_id in self.active_bots:
-            return False
+            bot_info = self.active_bots[meeting_id]
+            process = bot_info['process']
+            if process.poll() is None:  # Process is still running
+                print(f"🤖 Bot already running for meeting {meeting_id} (PID: {process.pid})")
+                return False
+            else:
+                print(f"🤖 Bot process for meeting {meeting_id} has stopped, will cleanup")
+                self.cleanup_bot(meeting_id)
         
         # Check if we already have a bot running for this user
-        for active_meeting_id, process in self.active_bots.items():
-            # You could store user_id with each bot process for better tracking
-            # For now, we'll assume one bot per user is sufficient
-            pass
+        for active_meeting_id, bot_info in self.active_bots.items():
+            if bot_info.get('user_id') == user_id:
+                print(f"🤖 Bot already running for user {user_id}")
+                return False
         
         # Check if meeting has a link
         if not meeting.get('link'):
             print(f"⚠️ Meeting {meeting_id} has no link, skipping")
             return False
         
-        # Only start bot for the most recent meeting per user
-        # (This is handled in the main loop by only passing the most recent meeting)
+        # Check if it's time for the meeting
+        if not self.is_meeting_time(meeting):
+            return False
         
+        print(f"✅ Meeting {meeting_id} is ready for bot to join")
         return True
 
     def start_meeting_bot(self, meeting: dict, user_id: str):
@@ -193,8 +305,18 @@ class SimpleOrchestrator:
                 universal_newlines=True
             )
             
-            self.active_bots[meeting_id] = bot_process
-            print(f"✅ Started bot process (PID: {bot_process.pid}) for meeting {meeting_id}")
+            # Store bot information including start time and duration
+            duration_minutes = int(meeting.get('duration', 30))  # Default to 30 minutes
+            bot_info = {
+                'process': bot_process,
+                'user_id': user_id,
+                'start_time': datetime.now(),
+                'duration_minutes': duration_minutes,
+                'meeting_id': meeting_id
+            }
+            
+            self.active_bots[meeting_id] = bot_info
+            print(f"✅ Started bot process (PID: {bot_process.pid}) for meeting {meeting_id}, duration: {duration_minutes} minutes")
             
             # Start a thread to monitor bot output in real-time
             import threading
@@ -223,25 +345,55 @@ class SimpleOrchestrator:
                 # Process has already exited
                 print(f"❌ Bot process failed to start (exit code: {bot_process.returncode})")
                 # Remove from active bots since it failed
-                del self.active_bots[meeting_id]
+                if meeting_id in self.active_bots:
+                    del self.active_bots[meeting_id]
             else:
                 print(f"✅ Bot process is running successfully")
+                # Add a small delay to ensure the bot is fully started before continuing
+                time.sleep(1)
             
         except Exception as e:
             print(f"❌ Error starting bot for meeting {meeting_id}: {e}")
 
+    def shutdown(self):
+        """Gracefully shutdown the orchestrator"""
+        print("🛑 Shutting down orchestrator...")
+        self.running = False
+        
+        # Cleanup all active bots
+        print("🧹 Cleaning up bots...")
+        for meeting_id in list(self.active_bots.keys()):
+            self.cleanup_bot(meeting_id)
+        
+        print("✅ Orchestrator shutdown complete")
+
+    def signal_handler(self, signum, frame):
+        """Handle shutdown signals"""
+        print(f"\n🛑 Received signal {signum}, shutting down...")
+        self.shutdown()
+        sys.exit(0)
+
     def check_bot_status(self):
-        """Check if any bots have stopped and clean them up"""
-        stopped_bots = []
+        """Check if any bots have stopped or should leave based on duration"""
+        bots_to_cleanup = []
         
-        for meeting_id, process in self.active_bots.items():
-            if process.poll() is not None:  # Process has finished
-                print(f"🤖 Bot for meeting {meeting_id} has stopped (exit code: {process.returncode})")
-                stopped_bots.append(meeting_id)
+        for meeting_id, bot_info in self.active_bots.items():
+            process = bot_info['process']
+            
+            # Check if process has stopped unexpectedly
+            if process.poll() is not None:
+                print(f"🤖 Bot for meeting {meeting_id} has stopped unexpectedly (exit code: {process.returncode})")
+                bots_to_cleanup.append(meeting_id)
+                continue
+            
+            # Check if bot should leave based on duration
+            if self.should_bot_leave(meeting_id):
+                print(f"⏰ Bot for meeting {meeting_id} has reached its duration limit, cleaning up")
+                bots_to_cleanup.append(meeting_id)
         
-        # Remove stopped bots from active list
-        for meeting_id in stopped_bots:
-            del self.active_bots[meeting_id]
+        # Clean up bots that need to be removed
+        for meeting_id in bots_to_cleanup:
+            self.cleanup_bot(meeting_id)
 
     def run(self):
         """Main orchestrator loop"""
@@ -265,6 +417,10 @@ class SimpleOrchestrator:
                 
                 # Log current status
                 print(f"📊 Active bots: {len(self.active_bots)}")
+                for meeting_id, bot_info in self.active_bots.items():
+                    elapsed_minutes = (datetime.now() - bot_info['start_time']).total_seconds() / 60
+                    remaining = bot_info['duration_minutes'] - elapsed_minutes
+                    print(f"   🤖 Meeting {meeting_id}: {elapsed_minutes:.1f}/{bot_info['duration_minutes']} minutes ({remaining:.1f} remaining)")
                 print(f"👥 Monitoring {len(users_with_meetings)} users")
                 
                 # Sleep for 30 seconds before next check
@@ -289,12 +445,17 @@ class SimpleOrchestrator:
 
 def main():
     orchestrator = SimpleOrchestrator()
+    
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, orchestrator.signal_handler)
+    signal.signal(signal.SIGTERM, orchestrator.signal_handler)
+    
     try:
         orchestrator.run()
     except KeyboardInterrupt:
         print("🛑 Shutting down...")
     finally:
-        orchestrator.cleanup()
+        orchestrator.shutdown()
 
 if __name__ == "__main__":
     main()

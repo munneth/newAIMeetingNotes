@@ -84,6 +84,7 @@ model Meeting {
   link        String
   meetingId   String?
   duration    String?
+  startTime   String?
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
